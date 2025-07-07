@@ -1,0 +1,3 @@
+22927521, ULTnkYQ QN, Clayton Rd Clayton, VIC3170, (10.9, 14.5), ['PX101073, jEJPRJ qNTOlvhmWpw, 17, 212, FWD', 'QZ278951, KnifVWGlnEvsudbG, 11, 155, AWD', 'HP701271, hqVm QRxZJMhhB, 19, 213, AWD', 'GN448578, GiblDmqvZLrPmLQJAmsW, 5, 176, RWD']
+77903872, asTgslrLl , Clayton Rd Clayton, VIC3170, (8.4, 16.9), ['UX761456, WSTzkGuigTuKgXzVNG, 14, 210, FWD', 'GD356859,  OGrenAEllf tJH, 6, 230, FWD', 'KJ072312, DCjFoPDbGF, 9, 230, AWD', 'HL768616, ixqrtEbaAIYEaFm, 11, 181, FWD']
+36675258, eiTyElGZTv, Clayton Rd Mount Waverley, VIC3168, (11.9, 12.3), ['WP270984,  lQjZrcnIs ZIurLWL, 17, 267, AWD', 'KN682204, MtASuDiLqLR, 9, 278, FWD', 'MF007567, nWVcEVCvINzKbu  RqYR, 10, 189, RWD']
