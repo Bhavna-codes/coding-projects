@@ -1,0 +1,804 @@
+---
+title: "assignment-4"
+output: html_document
+date: "2024-05-30"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# TASK-B
+## B-1
+Below we can see the code and output for task b1 to do web scrapping,wrangle data and return a table-
+
+```{r}
+# Load required libraries
+library(rvest)
+library(dplyr)
+library(lubridate)
+
+# URL of the Wikipedia page
+url <- "https://en.wikipedia.org/wiki/ICC_Men%27s_T20I_Team_Rankings"
+
+# Read the HTML content from the URL
+page <- read_html(url)
+
+# Extract all tables on the page with the class "wikitable"
+tables <- page %>% html_nodes("table.wikitable")
+
+
+# Identify the correct table index (based on inspection, it's the 6th table)
+table_index <- 6
+historical_rankings_table <- tables[[table_index]] %>% html_table(fill = TRUE)
+
+# Clean up column names
+colnames(historical_rankings_table) <- c("Country", "Start", "End", "Duration", "Cumulative", "Highest_Rating")
+
+# Custom function to parse dates
+parse_date <- function(date_str) {
+  formats <- c("%d %B %Y", "%d %b %Y", "%Y-%m-%d")
+  for (fmt in formats) {
+    parsed_date <- as.Date(date_str, format = fmt)
+    if (!is.na(parsed_date)) {
+      return(parsed_date)
+    }
+  }
+  return(NA)
+}
+
+# Convert the Start and End columns to Date format
+historical_rankings_table$Start <- sapply(historical_rankings_table$Start, parse_date)
+historical_rankings_table$End <- sapply(historical_rankings_table$End, parse_date)
+
+# Check for NA values and filter them out
+historical_rankings_table <- historical_rankings_table %>%
+  filter(!is.na(Start) & !is.na(End))
+
+# Calculate the duration
+historical_rankings_table$Duration <- as.numeric(difftime(historical_rankings_table$End, historical_rankings_table$Start, units = "days"))
+
+# Summarize the data
+summary_table <- historical_rankings_table %>%
+  group_by(Country) %>%
+  summarize(
+    Earliest_start = as.Date(min(Start, na.rm = TRUE)),
+    Latest_end = as.Date(max(End, na.rm = TRUE)),
+    Average_duration = mean(Duration, na.rm = TRUE)
+  ) %>%
+  arrange(desc(Average_duration))
+
+# Print the summarized table
+print(summary_table)
+```
+
+
+### Explanation
+In the first part of the code we will load the necessary libraries and their uses, which are:
+
+- `rvest: Web scraping`
+- `dplyr: Data Manipulation`
+- `lubridate: Dates`
+
+The next step is to read the html url by dubbing the name as url and then using `read_html` command.
+
+After this, we extract the tables using html_nodes and identify the correct table that we want to work with which is the 6th one for this task.Once that is done we convert the table into a dataframe using `tables[[table_index]]%>%html_table(fill=TRUE):`
+Then we clean up the column names for mor clarity and parse the dates to change them into a custom format.We will also filter out any NA values using `filter(!is.na(Start) & ! is.na(End))`
+After this we calculate the duration by taking the difference between the start and end dates and finally summarise and print the table.
+
+## B-2
+
+For this task i have chosen the following url: `https://en.wikipedia.org/wiki/Demographics_of_India`
+This article talks in depth about the demographic population of India over the years as recorded by different economists.
+
+Below is the code for scraping, wrangling and obtaining as well as plotting data:
+
+```{r}
+# Load required libraries
+library(rvest)
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(tidyr)
+
+# URL of the Wikipedia page
+url <- "https://en.wikipedia.org/wiki/Demographics_of_India"
+
+# Read the HTML content from the URL
+page <- read_html(url)
+
+# Extract all tables on the page with the class "wikitable"
+tables <- page %>% html_nodes("table.wikitable")
+
+# Identify the correct table index (based on inspection, it's the 1st table)
+table_index <- 1
+demographics_table <- tables[[table_index]] %>% html_table(fill = TRUE)
+
+# Clean up column names
+colnames(demographics_table) <- c("Year", "Maddison_Population", "Maddison_Growth", "Clark_Population", "Clark_Growth", "Biraben_Population", "Biraben_Growth", "Durand_Population", "Durand_Growth", "McEvedy_Population", "McEvedy_Growth")
+
+# Select only the columns Year, Maddison Population, Clark Population, Biraben Population, and Durand Population
+population_table <- demographics_table %>% select(Year, Maddison_Population, Clark_Population, Biraben_Population, Durand_Population)
+
+# Convert populations to numeric, removing any commas or non-numeric characters
+population_table <- population_table %>%
+  mutate(across(c(Maddison_Population, Clark_Population, Biraben_Population, Durand_Population), ~ as.numeric(gsub(",", "", gsub("[^0-9]", "", .)))))
+
+# Filter out rows with NA values in all population columns
+population_table <- population_table %>% filter(!is.na(Maddison_Population) | !is.na(Clark_Population) | !is.na(Biraben_Population) | !is.na(Durand_Population))
+
+# Print the table containing the selected population columns
+print(population_table)
+
+# Transform the data to a long format for plotting
+population_long <- population_table %>%
+  pivot_longer(cols = c(Maddison_Population, Clark_Population, Biraben_Population, Durand_Population), names_to = "Economist", values_to = "Population")
+
+# Create a line plot using ggplot2
+ggplot(population_long, aes(x = as.numeric(Year), y = Population, color = Economist)) +
+  geom_line() +
+  geom_point() +
+  scale_y_continuous(labels = comma) + # Format y-axis labels to avoid exponents
+  labs(title = "Population Growth Over Years (Different Economists)", x = "Year", y = "Population") +
+  theme_minimal()
+```
+### Interpreting the graph
+
+The graph displays the population growth over the years as estimated by different economists: Maddison, Clark, Biraben, and Durand. The x-axis represents the years, while the y-axis shows the population. Each line and corresponding points denote the population estimates provided by a specific economist. The data reveals a consistent upward trend in population across all economists’ estimates, with significant increases starting around the 1500s, reflecting historical population growth trends. The variations between economists’ estimates highlight the differences in historical population data interpretation and methodology.
+
+### Explanation of code
+Here, the additional libraries loaded:
+
+- **ggplot2**: Used to visualize data.
+- **scales**: Used for properly scaling data into correct formats for scales.
+- **tidyr**: Data transformation.
+
+Similar to previous task, first we will read the url and extract the data from the correct table (Here it is table 1).
+After that, we clean up the column names after which we select and clean the population data by selecting only relevant columns, in this case we wanted only first 4 economists.Ensure there are no NA values and then finally print out the table.
+Once the table has been printed, we transform it to use it to make plots since long formats work better with ggplot2.
+Lastly, we use ggplot to plot out a comparative line graph.
+
+# TASK-C
+
+## Twitter Exploration
+
+## 1.1 Accounts over the Years
+
+```{r}
+# Load required libraries
+library(ggplot2)
+library(dplyr)
+library(stringr)
+library(tidyverse)
+library(tidytext)
+library(textclean)
+
+# Read the CSV file
+tweets <- read.csv("Olympics_tweets.csv", stringsAsFactors = FALSE)
+
+# Extract the year from the user_created_at column
+tweets$year <- format(as.Date(tweets$user_created_at, format = "%d/%m/%Y"), "%Y")
+
+# Remove NA values in the year column
+tweets <- tweets %>% filter(!is.na(year))
+
+# Count the number of accounts created each year
+yearly_counts <- tweets %>%
+  group_by(year) %>%
+  summarise(count = n())
+
+# Create the bar chart
+ggplot(yearly_counts, aes(x = year, y = count)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  labs(title = "Number of Twitter Accounts Created Each Year",
+       x = "Year",
+       y = "Number of Accounts") +
+  theme_minimal()
+```
+From the above chart, we observe that number of accounts peak around 2009 which indicates a surge of new accounts being created then after which the number fluctuates over the years with significant increases again around 2011 and 2020.It declines sometimes as seen in 2013 and 2019. The graph shows us the account trends over the years.
+
+## Explanation
+
+First we begin by loading libraries:
+- **ggplot2**: Used to visualize data.
+- **dplyr**: Data Manipulation
+- **stringr**: String Manipulation
+- **tidyverse**:Library for datascience
+- **tidytext**:Text mining
+- **textclean**: Text Cleaning
+First, we read from the CSV File after which we format and extract the year part of the date and remove NA Values.
+We then count the number of accounts each year using command-
+`yearly_counts <- tweets %>% group_by(year) %>% summarise(count = n())`
+Lastly, we use ggplot to build visualisations.
+
+## 1.2 
+
+```{r}
+# Extract the year from the user_created_at column
+tweets$year <- format(as.Date(tweets$user_created_at, format = "%d/%m/%Y"), "%Y")
+
+# Convert year to numeric and filter for accounts created after 2010
+tweets <- tweets %>% filter(as.numeric(year) > 2010)
+
+# Remove NA values in the year and user_followers columns
+tweets <- tweets %>% filter(!is.na(year) & !is.na(user_followers))
+
+# Calculate the average number of user_followers for each year
+yearly_avg_followers <- tweets %>%
+  group_by(year) %>%
+  summarise(avg_followers = mean(user_followers, na.rm = TRUE))
+
+# Create the bar chart
+ggplot(yearly_avg_followers, aes(x = year, y = avg_followers)) +
+  geom_bar(stat = "identity", fill = "lightblue") +
+  labs(title = "Average Number of Followers for Accounts Created After 2010",
+       x = "Year",
+       y = "Average Number of Followers") +
+  theme_minimal()
+```
+We can see a fluctuation of average number of followers till 2016 after which we see a steady decline there on.
+
+## Explanation
+I have omitted from this chunk the code that was already in the previous chunk to reduce redundancy. Here we extract the year and follow similar steps as before by removing NA values after which we calculate average user followers for each year and use ggplot to generate a bar chart.
+
+## 1.3
+1.	Number of Twitter Accounts Created Each Year:
+	•	There was a significant spike in the number of Twitter accounts created in 2009.
+	•	From 2009 to 2012, the number of accounts created each year remained relatively high.
+	•	There is a noticeable dip in the number of accounts created from 2013 to 2019, followed by a slight increase in 2020 and 2021.
+	2.	Average Number of Followers for Accounts Created After 2010:
+	•	Accounts created in 2011 have the highest average number of followers.
+	•	There is a general decline in the average number of followers for accounts created from 2012 onwards.
+	•	The average number of followers for accounts created in recent years (2017 onwards) is significantly lower compared to earlier years.
+
+Potential Explanations:
+
+1.	Spike in 2009 Account Creations:
+	•	Twitter gained immense popularity around 2009, possibly due to increased media coverage and adoption by celebrities and public figures, leading to a surge in new accounts.
+2.	Decline in Average Followers Over Time:
+	•	Early adopters of Twitter (accounts created around 2011) were likely to gain more followers as the platform was less saturated, and they had more time to build their follower base.
+	•	As Twitter became more mainstream and the number of users grew, the competition for followers increased, making it harder for newer accounts to amass large follower counts.
+	•	Changes in Twitter’s algorithm and user behavior over the years could also contribute to the declining average number of followers for newer accounts.
+3.	Slight Increase in Recent Years:
+	•	The slight increase in the number of accounts created in 2020 and 2021 could be attributed to the global events such as the COVID-19 pandemic, where people sought more online interactions and social media usage surged.
+
+Overall, these observations suggest that the dynamics of Twitter’s user growth and engagement have evolved significantly over the years, influenced by various external factors and the platform’s own development.
+
+## 1.4
+
+```{r}
+# Clean the user_location column (trim whitespace, convert to lowercase)
+tweets$user_location <- trimws(tolower(tweets$user_location))
+
+# Count the occurrences of each location and display the top 10 most frequent locations
+location_counts <- tweets %>%
+  filter(!is.na(user_location) & user_location != "") %>%
+  group_by(user_location) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count)) %>%
+  head(10)
+
+# Print the top 10 most frequent locations
+print(location_counts)
+
+# Count the total number of tweets associated with these top 10 most frequent locations
+total_tweets_top10_locations <- sum(location_counts$count)
+cat("Total number of tweets associated with the top 10 most frequent locations:", total_tweets_top10_locations, "\n")
+
+#visualise
+# Clean the user_location column (trim whitespace, convert to lowercase)
+tweets$user_location <- trimws(tolower(tweets$user_location))
+
+# Count the occurrences of each location and display the top 10 most frequent locations
+location_counts <- tweets %>%
+  filter(!is.na(user_location) & user_location != "") %>%
+  group_by(user_location) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count)) %>%
+  head(10)
+
+# Calculate percentages
+location_counts <- location_counts %>%
+  mutate(percentage = count / sum(count) * 100)
+
+# Print the top 10 most frequent locations with percentages
+print(location_counts)
+
+# Create a pie chart with percentages
+ggplot(location_counts, aes(x = "", y = percentage, fill = user_location)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar(theta = "y") +
+  geom_text(aes(label = sprintf("%.1f%%", percentage)),
+            position = position_stack(vjust = 0.5)) +
+  labs(title = "Top 10 Most Frequent User Locations",
+       fill = "User Location") +
+  theme_void()
+```
+### Explanation
+This code cleans the data by removing any whitespace using the `trimws` and then converts everything to lowercase using `tolower` in order to standardize the data for counting.
+Then we block out NA values and group counting by user location and print out the result.
+To add more context to the above, i have included a pie chart visualizing the same using ggplot.
+
+## 2
+## 2.1
+```{r}
+# Extract the date from the 'date' column
+tweets$date_only <- as.Date(tweets$date, format = "%d/%m/%Y %H:%M")
+
+# Count the number of tweets for each date
+date_counts <- tweets %>%
+  group_by(date_only) %>%
+  summarise(tweet_count = n()) %>%
+  arrange(tweet_count)
+
+# Print the date with the lowest number of tweets
+print(date_counts[1, ])
+
+# Create a bar chart
+ggplot(date_counts, aes(x = date_only, y = tweet_count)) +
+  geom_bar(stat = "identity", fill = "purple") +
+  labs(title = "Number of Tweets Posted on Different Dates",
+       x = "Date",
+       y = "Number of Tweets") +
+  theme_minimal()
+
+```
+
+### Interpretation
+
+From above graph, we can conclude that the date with least tweets is Jun 24th.
+
+### Explanation
+Here we extract the date using command `tweets$date_only <- as.Date(tweets$date, format = "%d/%m/%Y %H:%M")`
+After this we count the number of tweets grouped by the date and prrint the results in ascending order. Finally we use ggplot to help us create a barchart visualising the same.
+
+## 2.2
+
+```{r}
+# Calculate the length of the text in each tweet
+tweets$text_length <- nchar(tweets$text)
+
+# Categorize the tweet lengths
+tweets$tweet_length_category <- cut(tweets$text_length,
+                                    breaks = c(0, 40, 80, 120, 160, 200, 240, Inf),
+                                    labels = c("[1, 40]", "[41, 80]", "[81, 120]", "[121, 160]", "[161, 200]", "[201, 240]", ">= 241"),
+                                    right = FALSE)
+
+# Create a bar chart with the categorized tweet lengths
+ggplot(tweets, aes(x = tweet_length_category)) +
+  geom_bar(fill = "red", color = "black") +
+  labs(title = "Distribution of Tweet Lengths",
+       x = "Tweet Length (characters)",
+       y = "Number of Tweets") +
+  theme_minimal() +
+  scale_x_discrete(drop = FALSE) 
+```
+### Interpretation
+
+From above graph, we can conclude that tweets with character length 121-160 have the highest number of tweets and least are more than 241 characters.
+
+### Explanation
+We use the line `tweets$text_length <- nchar(tweets$text): ` to create a new column in the dataframe that calculates the number of characters within the tweet's text.
+Then we categorize the tweets into classes as defined in the assignment specification.Finally we use ggplot to create a visualisation.
+
+## 2.3
+
+```{r}
+# Define a function to count unique usernames in a tweet
+count_usernames <- function(text) {
+  usernames <- str_extract_all(text, "@\\w+")[[1]]
+  unique_usernames <- unique(usernames)
+  return(length(unique_usernames))
+}
+
+# Apply the function to each tweet to count the usernames
+tweets$username_count <- sapply(tweets$text, count_usernames)
+
+# Count the number of tweets containing at least one username
+tweets_with_usernames <- sum(tweets$username_count >= 1)
+
+# Count the number of tweets containing at least three different usernames
+tweets_with_three_usernames <- sum(tweets$username_count >= 3)
+
+# Print the results
+cat("Number of tweets containing at least one username:", tweets_with_usernames, "\n")
+cat("Number of tweets containing at least three different usernames:", tweets_with_three_usernames, "\n")
+```
+### Explanation
+
+`count_usernames <- function(text):` This basically defines a new function named count_usernames with the argument of text.Then we go on to find all sub strings that match patter `@\\w+` which is where the stringr library is used.After this we look up unique user names and return the value and apply the function to every tweet.
+
+## 2.4
+``` {r}
+# Create a tibble and tokenize the text data
+tweets_tidy <- tweets %>%
+  select(text) %>%
+  unnest_tokens(word, text)
+
+# Calculate term frequency including stopwords
+term_frequency <- tweets_tidy %>%
+  count(word, sort = TRUE)
+
+# Get the top 20 most frequent terms including stopwords
+top_20_terms <- term_frequency %>% head(20)
+
+# Remove stopwords
+data("stop_words")
+tweets_tidy_no_stopwords <- tweets_tidy %>%
+  anti_join(stop_words, by = "word")
+
+# Calculate term frequency excluding stopwords
+term_frequency_no_stopwords <- tweets_tidy_no_stopwords %>%
+  count(word, sort = TRUE)
+
+# Get the top 20 most frequent terms excluding stopwords
+top_20_terms_no_stopwords <- term_frequency_no_stopwords %>% head(20)
+
+# Print the results
+cat("Top 20 most frequent terms (including stopwords):\n")
+print(top_20_terms)
+
+cat("\nTop 20 most frequent terms (excluding stopwords):\n")
+print(top_20_terms_no_stopwords)
+
+# Visualize the top 20 terms excluding stopwords
+top_20_terms_no_stopwords %>%
+  ggplot(aes(x = reorder(word, n), y = n)) +
+  geom_col(fill = "skyblue") +
+  coord_flip() +
+  labs(title = "Top 20 Most Frequent Terms (Excluding Stopwords)",
+       x = "Terms",
+       y = "Frequency") +
+  theme_minimal()
+```
+### Interpretation
+The bar chart displays the top 20 most frequent terms in the tweets about the Olympics, excluding common stopwords. The terms “olympics,” “t.co,” and “https” are the most frequent, indicating frequent mentions of the event and many tweets containing links. Other notable terms include “tokyo,” “gold,” “team,” “medal,” and “athletes,” reflecting discussions around the Tokyo 2020 Olympics, athletes, and their achievements. 
+
+### Explanation
+
+```	tweets_tidy <- tweets %>% select(text) %>% unnest_tokens(word, text):``` This line creates a tidy tibble y selecting the text column from the tweets dataframe and tokenizing the text into individual words.Then we split each text into different words.after which we calculate the frequency of terms along with stop words. After this we get the top 20 most frequent terms and remove the stopwords by using `tweets_tidy_no_stopwords <- tweets_tidy %>% anti_join(stop_words, by = "word")`
+Then we calculate most frequent terms and output the same using ggplot.
+
+# TASK-D
+
+## Common libraries and loading
+
+```{r}
+# Load required libraries
+library(readr)
+library(dplyr)
+library(ggplot2)
+
+# Load the data files
+utterance_train <- read_csv('dialogue_utterance_train.csv')
+usefulness_train <- read_csv('dialogue_usefulness_train.csv')
+```
+## 1
+
+```{r}
+# Correct the column names 
+colnames(utterance_train) <- c("Dialogue_ID", "Timestamp", "Interlocutor", "Utterance_text")
+colnames(usefulness_train) <- c("Dialogue_ID", "Usefulness_score")
+
+# Merge the data on Dialogue_ID
+merged_data <- utterance_train %>%
+  inner_join(usefulness_train, by = "Dialogue_ID")
+
+# Feature Engineering: Calculate Average Utterance Length and Number of Utterances
+features <- merged_data %>%
+  group_by(Dialogue_ID) %>%
+  summarize(
+    Average_Utterance_Length = mean(nchar(Utterance_text)),
+    Number_of_Utterances = n(),
+    Usefulness_score = first(Usefulness_score)
+  )
+
+# Filter the data for visualization
+filtered_data <- features %>%
+  filter(Usefulness_score %in% c(1, 2, 4, 5))
+
+# Create boxplots
+p1 <- ggplot(filtered_data, aes(x = factor(Usefulness_score), y = Average_Utterance_Length, fill = factor(Usefulness_score))) +
+  geom_boxplot() +
+  labs(title = "Average Utterance Length by Usefulness Score", x = "Usefulness Score", y = "Average Utterance Length") +
+  theme_minimal()
+
+p2 <- ggplot(filtered_data, aes(x = factor(Usefulness_score), y = Number_of_Utterances, fill = factor(Usefulness_score))) +
+  geom_boxplot() +
+  labs(title = "Number of Utterances by Usefulness Score", x = "Usefulness Score", y = "Number of Utterances") +
+  theme_minimal()
+
+# Print the plots
+print(p1)
+print(p2)
+
+# Group the data into two categories for t-test
+grouped_data <- filtered_data %>%
+  mutate(Group = case_when(
+    Usefulness_score %in% c(1, 2) ~ "Low",
+    Usefulness_score %in% c(4, 5) ~ "High"
+  ))
+
+# Perform t-test for Average Utterance Length
+t_test_length <- t.test(Average_Utterance_Length ~ Group, data = grouped_data)
+print(t_test_length)
+
+# Perform t-test for Number of Utterances
+t_test_utterances <- t.test(Number_of_Utterances ~ Group, data = grouped_data)
+print(t_test_utterances)
+```
+### Interpretation
+
+1.	Average Utterance Length by Usefulness Score:
+The graph shows that dialogues with a usefulness score of 5 tend to have longer average utterance lengths compared to other scores. There is a noticeable spread in the data for scores 4 and 5, indicating variability in utterance lengths for these higher usefulness scores.
+2.	Number of Utterances by Usefulness Score:
+The graph indicates that dialogues with a usefulness score of 5 also tend to have a higher number of utterances. There is a trend of increasing number of utterances with increasing usefulness score, with the highest scores showing the most variability.
+
+### Explanation
+
+First we begin by correcting column names to ensure smooth running of code after which we merge data using an inner join on Dialogue_ID.Once this is done the code then moves on to calculating new features for each dialogue and is filtered with usefulness scores from 1-5.
+We then use ggplot to give us boxplots.
+Next we group data into 2 categories for t-test as low and high scores and is named as group in the data frame.Finally we perform 2 t-tests, one to compare average utterance length between groups and the other to compare the number of utterances between them.
+3. T- Test
+The t-test indicates no statistically significant difference in the number of utterances between dialogues with high and low usefulness scores. The p-value is 0.4837, and the confidence interval includes 0.
+
+## 2
+
+```{r}
+# Load required libraries
+library(readr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(caret)
+library(randomForest)
+
+# Load the data files
+utterance_train <- read_csv('dialogue_utterance_train.csv')
+usefulness_train <- read_csv('dialogue_usefulness_train.csv')
+utterance_validation <- read_csv('dialogue_utterance_validation.csv')
+usefulness_validation <- read_csv('dialogue_usefulness_validation.csv')
+utterance_test <- read_csv('dialogue_utterance_test.csv')
+usefulness_test <- read_csv('dialogue_usefulness_test.csv')
+
+
+# Rename columns to standardize names
+colnames(utterance_train) <- c("Dialogue_ID", "Timestamp", "Interlocutor", "Utterance_text")
+colnames(utterance_validation) <- c("Dialogue_ID", "Timestamp", "Interlocutor", "Utterance_text")
+colnames(utterance_test) <- c("Dialogue_ID", "Timestamp", "Interlocutor", "Utterance_text")
+colnames(usefulness_train) <- c("Dialogue_ID", "Usefulness_score")
+colnames(usefulness_validation) <- c("Dialogue_ID", "Usefulness_score")
+colnames(usefulness_test) <- c("Dialogue_ID", "Usefulness_score")
+
+# Function to calculate features
+calculate_features <- function(utterance_data, usefulness_data) {
+  utterance_data %>%
+    group_by(Dialogue_ID) %>%
+    summarise(
+      Number_of_Utterances = n(),
+      Average_Utterance_Length = mean(nchar(Utterance_text), na.rm = TRUE),
+      Interlocutor_Ratio = sum(Interlocutor == 'Student') / sum(Interlocutor == 'Chatbot', na.rm = TRUE)
+    ) %>%
+    inner_join(usefulness_data, by = "Dialogue_ID")
+}
+
+# Calculate features for training and validation sets
+train_features <- calculate_features(utterance_train, usefulness_train)
+validation_features <- calculate_features(utterance_validation, usefulness_validation)
+
+# Prepare data for training
+train_x <- train_features %>%
+  select(Number_of_Utterances, Average_Utterance_Length, Interlocutor_Ratio)
+train_y <- train_features$Usefulness_score
+
+# Train Random Forest Model
+rf_model <- randomForest(train_x, train_y, ntree = 100, importance = TRUE)
+
+# Print model summary
+print(rf_model)
+
+# Prepare validation data
+validation_x <- validation_features %>%
+  select(Number_of_Utterances, Average_Utterance_Length, Interlocutor_Ratio)
+validation_y <- validation_features$Usefulness_score
+
+# Predict on validation set
+validation_pred <- predict(rf_model, validation_x)
+
+# Calculate evaluation metrics
+rmse <- sqrt(mean((validation_y - validation_pred)^2))
+mae <- mean(abs(validation_y - validation_pred))
+
+# Print evaluation metrics
+cat("RMSE: ", rmse, "\n")
+cat("MAE: ", mae, "\n")
+
+# Plot predictions vs actual values
+ggplot(data = data.frame(Actual = validation_y, Predicted = validation_pred), aes(x = Actual, y = Predicted)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, color = 'red') +
+  labs(title = "Validation Set: Actual vs Predicted Usefulness Scores", x = "Actual", y = "Predicted") +
+  theme_minimal()
+
+```
+
+### Interpretation
+
+Model Summary:
+
+	•	Type of random forest: Regression
+	•	Number of trees: 100
+	•	Number of variables tried at each split: 1
+	•	Mean of squared residuals: 1.238932
+	•	% Var explained: -5.56 (This indicates the model is not performing well as a negative percentage indicates that the model performs worse than a simple mean prediction)
+
+Evaluation Metrics:
+
+	•	RMSE (Root Mean Square Error): 1.065752
+	•	MAE (Mean Absolute Error): 0.7741437
+
+### Plot Interpretation:
+The scatter plot shows the relationship between the actual usefulness scores and the predicted usefulness scores from the random forest model. The red line represents the line of perfect prediction (where actual equals predicted).
+
+	•	Points closer to the red line indicate better predictions.
+	•	The spread of points around the line indicates the level of prediction error.
+	•	From the plot, it is evident that the predictions are not very accurate, especially since the points are spread widely and do not align closely with the red line.
+	
+Therefore, the random forest model trained with the current features (Number_of_Utterances, Average_Utterance_Length, Interlocutor_Ratio) does not perform well in predicting the usefulness scores. The low % variance explained and the spread of points in the plot indicate that the model has limited predictive power with the given features.
+
+## 3. Improvements
+o	Feature Engineering: Create additional features that might better capture the patterns in the data. For instance:
+•	Sentiment Analysis: Calculate sentiment scores for each utterance and include average sentiment score as a feature.
+•	Engagement Metrics: Include features like the number of questions asked by the student, the number of informative statements by the chatbot, etc.
+o	Model Selection: Experiment with different models such as gradient boosting machines, support vector machines, or neural networks.
+o	Hyperparameter Tuning: Perform hyperparameter tuning to optimize the model’s performance
+
+
+
+```{r}
+# Load required libraries
+library(readr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(caret)
+library(randomForest)
+library(e1071)
+library(xgboost)
+
+# Load the data files
+utterance_train <- read_csv('dialogue_utterance_train.csv')
+usefulness_train <- read_csv('dialogue_usefulness_train.csv')
+utterance_validation <- read_csv('dialogue_utterance_validation.csv')
+usefulness_validation <- read_csv('dialogue_usefulness_validation.csv')
+
+# Standardize column names
+colnames(utterance_train) <- c("Dialogue_ID", "Timestamp", "Interlocutor", "Utterance_text")
+colnames(utterance_validation) <- c("Dialogue_ID", "Timestamp", "Interlocutor", "Utterance_text")
+
+# Function to calculate features
+calculate_features <- function(utterance_data, usefulness_data) {
+  utterance_data %>%
+    group_by(Dialogue_ID) %>%
+    summarise(
+      Number_of_Utterances = n(),
+      Average_Utterance_Length = mean(nchar(Utterance_text), na.rm = TRUE),
+      Interlocutor_Ratio = sum(Interlocutor == 'Student') / sum(Interlocutor == 'Chatbot', na.rm = TRUE)
+    ) %>%
+    inner_join(usefulness_data, by = "Dialogue_ID")
+}
+
+# Calculate features for training and validation sets
+train_features <- calculate_features(utterance_train, usefulness_train)
+validation_features <- calculate_features(utterance_validation, usefulness_validation)
+
+# Remove outliers based on IQR
+remove_outliers <- function(data) {
+  Q1 <- quantile(data$Average_Utterance_Length, 0.25)
+  Q3 <- quantile(data$Average_Utterance_Length, 0.75)
+  IQR <- Q3 - Q1
+  data <- data %>% filter(Average_Utterance_Length >= (Q1 - 1.5 * IQR) & Average_Utterance_Length <= (Q3 + 1.5 * IQR))
+  return(data)
+}
+train_features <- remove_outliers(train_features)
+
+# Rescale features
+preProcValues <- preProcess(train_features[, c("Number_of_Utterances", "Average_Utterance_Length", "Interlocutor_Ratio")], method = c("center", "scale"))
+train_features_scaled <- predict(preProcValues, train_features[, c("Number_of_Utterances", "Average_Utterance_Length", "Interlocutor_Ratio")])
+validation_features_scaled <- predict(preProcValues, validation_features[, c("Number_of_Utterances", "Average_Utterance_Length", "Interlocutor_Ratio")])
+
+# Add the target variable back to the scaled features
+train_features_scaled$Usefulness_score <- as.factor(train_features$Usefulness_score)
+validation_features_scaled$Usefulness_score <- as.factor(validation_features$Usefulness_score)
+
+# Function to train and evaluate models
+train_and_evaluate <- function(model_func, train_data, validation_data) {
+  train_x <- train_data[, -4]
+  train_y <- train_data$Usefulness_score
+  validation_x <- validation_data[, -4]
+  validation_y <- validation_data$Usefulness_score
+  
+  # Train the model
+  model <- model_func(train_x, train_y)
+  
+  # Predict on validation set
+  validation_pred <- predict(model, validation_x)
+  
+  # Calculate evaluation metrics
+  cm <- confusionMatrix(validation_pred, validation_y)
+  
+  list(model = model, confusion_matrix = cm)
+}
+
+# Define models
+random_forest_classification <- function(x, y) {
+  randomForest(x, y, ntree = 100, importance = TRUE)
+}
+
+svm_model <- function(x, y) {
+  svm(x, y, probability = TRUE)
+}
+
+# Train and evaluate models
+rf_results <- train_and_evaluate(random_forest_classification, train_features_scaled, validation_features_scaled)
+svm_results <- train_and_evaluate(svm_model, train_features_scaled, validation_features_scaled)
+
+# Print evaluation metrics
+cat("Random Forest - Confusion Matrix:\n")
+print(rf_results$confusion_matrix)
+
+cat("SVM - Confusion Matrix:\n")
+print(svm_results$confusion_matrix)
+
+# Plot predictions vs actual values for the best model
+best_model_results <- rf_results
+validation_pred <- predict(best_model_results$model, validation_features_scaled[, -4])
+
+ggplot(data = data.frame(Actual = validation_features_scaled$Usefulness_score, Predicted = validation_pred), aes(x = Actual, y = Predicted)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, color = 'red') +
+  labs(title = "Validation Set: Actual vs Predicted Usefulness Scores", x = "Actual", y = "Predicted") +
+  theme_minimal()
+```
+### Interpretation
+Confusion Matrix for Random Forest:
+
+Overall Accuracy: 43.33%
+Indicates that the model correctly predicted 43.33% of the usefulness scores on the validation set.
+Kappa: 0.071
+A measure of agreement between predicted and actual values, adjusted for chance. A value near 0 indicates slight agreement.
+
+Sensitivity and Specificity:
+- Class 4: High sensitivity (0.8462) but low specificity (0.2941), meaning it correctly identified many actual Class 4 scores but also misclassified many others as Class 4.
+- Class 5: Low sensitivity (0.2500) but high specificity (0.86364), meaning it missed many actual Class 5 scores but correctly identified most non-Class 5 scores.
+
+Confusion Matrix for SVM:
+
+Overall Accuracy: 43.33%	
+Similar to the Random Forest model.
+Kappa: 0.0467
+Indicates slight agreement between predictions and actual values, slightly lower than Random Forest.
+Sensitivity and Specificity:
+Class 4: High sensitivity (0.9231) but low specificity (0.2353), similar to Random Forest, indicating that the model is good at identifying Class 4 but misclassifies many others as Class 4.
+Class 5: Very low sensitivity (0.1250) but high specificity (0.8182), meaning it misses many actual Class 5 scores but correctly identifies most non-Class 5 scores.
+
+Conclusion
+
+Both Random Forest and SVM models have similar accuracy (43.33%) and face challenges with specificity and sensitivity, particularly for Classes 4 and 5. The high variability in performance across classes indicates the need for further model tuning or alternative modeling approaches to improve overall predictive performance.
+Key Points of Improvement:
+
+	1.	Accuracy: The classification models (Random Forest and SVM) provide a measurable accuracy (43.33%), which is a clear indicator of how often the model’s predictions match the actual class labels. This is a more interpretable metric compared to RMSE and MAE for regression.
+	2.	Kappa Score: Although the Kappa scores are low, they provide a statistical measure of inter-rater agreement for qualitative (categorical) items. The scores indicate slight agreement, which is better than none.
+	3.	Specificity and Sensitivity: The models have varying sensitivity and specificity across different classes, indicating that they are capturing some of the complexities in the data better than the original regression model.
+	4.	Classification Approach: Moving from a regression-based model to classification models (Random Forest and SVM) aligns better with the nature of the target variable (Usefulness score), which is categorical.
+	
+### Explanation
+
+Additional libraries loaded caret, randomForest, e1071, xgboost used for machine learning model training and evaluation.Once we load the files we then load Data Files for utterances and usefulness and proceed to standardize column names and then create a function `calculate_features` defined to merge utterance data and usefulness scores based on Dialoge_ID.Then we remove the outliers based on interquartile Range.Then we rescale the features using the `caret` library and add target variable Usefulness_score is added back to data frames.Then the models are trained and evaluated. Two defined models are-
+- **random_forest_classification**
+- **svm_model** 
+Finally we plot the predicted vs actual values using a scatterplot.
+
+
+
+
