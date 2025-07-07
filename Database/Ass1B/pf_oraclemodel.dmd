@@ -1,0 +1,8 @@
+<?xml version = '1.0' encoding = 'UTF-8'?>
+<OSDM_Design class="oracle.dbtools.crest.model.design.Design" name="pf_oraclemodel" id="D328AED3-E35B-83F4-B687-C768BAB7AFD3" version="3.5">
+<createdBy>bhavna_balakrishnan</createdBy>
+<createdTime>2023-09-11 13:37:50 UTC</createdTime>
+<ownerDesignName>pf_oraclemodel</ownerDesignName>
+<capitalNames>false</capitalNames>
+<designId>D328AED3-E35B-83F4-B687-C768BAB7AFD3</designId>
+</OSDM_Design>
